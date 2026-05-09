@@ -101,10 +101,17 @@ scripts/peft_to_wd_gguf.py \
   `Settings` because Heretic uses `pydantic_settings.CliSettingsSource`
   with `cli_parse_args=True`, which would otherwise try (and fail) to
   parse our `--journal/--trial/--output` flags.
-- On AMD GPUs without explicit PyTorch ROCm support (e.g. gfx1150),
-  `HSA_OVERRIDE_GFX_VERSION=11.0.0` makes torch treat the device as
-  RDNA3 (gfx1100), which is supported by the standard PyTorch+ROCm
-  wheels.
+- On AMD GPUs without explicit PyTorch ROCm support (e.g. gfx1150 on
+  ai00), `HSA_OVERRIDE_GFX_VERSION=11.0.0` makes torch treat the device
+  as RDNA3 (gfx1100), which is supported by the standard PyTorch+ROCm
+  wheels. Smoke-tested on PyTorch 2.9.1+rocm6.4.
+- gfx1103 (ai01 Radeon 780M) is **not viable** for this pipeline.
+  PyTorch 2.9.1+rocm6.4 has no native gfx1103 kernels (all matmul/sdpa
+  ops fail with `hipErrorInvalidDeviceFunction`). With
+  `HSA_OVERRIDE_GFX_VERSION=11.0.0` or `=11.0.2` the basic ops succeed
+  in isolation, but real-model workloads (Gemma-4-E2B-it) trigger
+  `GPU Hang` aborts mid-load or mid-forward. Run from_heretic.py on a
+  gfx1100/1150-class GPU instead.
 - `peft_to_wd_gguf.py`'s converter wrapper expects the base model as a
   local path (not an HF id) because llama.cpp's
   `convert_lora_to_gguf.py` does an os.listdir on the path.
