@@ -30,13 +30,18 @@ Usage:
 
 Note: this loads the base model + runs ~800 prompts through it to compute
 refusal directions. On Gemma-4-E2B-it that takes ~5 minutes of GPU time.
+The directions are cached to ~/.cache/heretic-to-sidecar/refusal_directions/
+keyed on (journal.settings + heretic git commit), so multi-trial sweeps
+amortise that cost across runs. Pass --no-cache to force recompute.
 """
 
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
+import subprocess
 import sys
 from pathlib import Path
 
@@ -67,7 +72,8 @@ def _resolve_heretic_path() -> Path:
     )
 
 
-sys.path.insert(0, str(_resolve_heretic_path() / "src"))
+_HERETIC_PATH = _resolve_heretic_path()
+sys.path.insert(0, str(_HERETIC_PATH / "src"))
 
 # Heretic
 import torch  # noqa: E402
@@ -76,6 +82,41 @@ from heretic.config import Settings  # noqa: E402
 from heretic.model import Model, AbliterationParameters  # noqa: E402
 from heretic.utils import load_prompts, set_seed  # noqa: E402
 from heretic.system import empty_cache  # noqa: E402
+
+
+_DEFAULT_CACHE_DIR = Path.home() / ".cache" / "heretic-to-sidecar" / "refusal_directions"
+
+
+def _heretic_commit(path: Path) -> str | None:
+    try:
+        out = subprocess.check_output(
+            ["git", "-C", str(path), "rev-parse", "HEAD"],
+            text=True, stderr=subprocess.DEVNULL,
+        )
+        return out.strip()
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        return None
+
+
+def _refusal_directions_cache_path(
+    journal_settings: dict, heretic_commit: str | None, cache_dir: Path,
+) -> Path:
+    """Hash the inputs that determine refusal_directions and return the
+    cache file path. Hits across trials in the same study (same journal
+    settings + same Heretic commit)."""
+    key = {
+        # `journal.settings` is the raw dict the original study was launched
+        # with; it captures model id, dtype, quant, prompts, seed,
+        # orthogonalize_direction, etc. Don't include device_map — same
+        # directions on CPU vs GPU.
+        "settings": journal_settings,
+        "heretic_commit": heretic_commit,
+        # Bump if the math in the compute block below changes.
+        "schema": 1,
+    }
+    blob = json.dumps(key, sort_keys=True, default=str).encode()
+    sha = hashlib.sha256(blob).hexdigest()
+    return cache_dir / f"{sha}.pt"
 
 
 def main():
@@ -88,6 +129,12 @@ def main():
                    help="Directory to write the peft adapter to")
     p.add_argument("--device-map", default="auto",
                    help="Override Heretic Settings.device_map (default: auto)")
+    p.add_argument("--no-cache", action="store_true",
+                   help="Disable the refusal_directions disk cache "
+                        "(force recompute, do not write).")
+    p.add_argument("--cache-dir", type=Path, default=_DEFAULT_CACHE_DIR,
+                   help=f"Cache dir for refusal_directions tensors "
+                        f"(default: {_DEFAULT_CACHE_DIR}).")
     args = p.parse_args()
 
     journal = parse_journal(args.journal)
@@ -126,25 +173,39 @@ def main():
     print(f"\nloading base model {settings.model}...", flush=True)
     model = Model(settings)
 
-    print(f"\nloading good prompts ({settings.good_prompts.dataset})...", flush=True)
-    good_prompts = load_prompts(settings, settings.good_prompts)
-    print(f"  {len(good_prompts)} prompts", flush=True)
-    print(f"loading bad prompts ({settings.bad_prompts.dataset})...", flush=True)
-    bad_prompts = load_prompts(settings, settings.bad_prompts)
-    print(f"  {len(bad_prompts)} prompts", flush=True)
+    cache_path = _refusal_directions_cache_path(
+        journal.settings, _heretic_commit(_HERETIC_PATH), args.cache_dir,
+    )
+    if not args.no_cache and cache_path.is_file():
+        print(f"\nloading cached refusal_directions from {cache_path}", flush=True)
+        refusal_directions = torch.load(cache_path, map_location=model.model.device)
+    else:
+        print(f"\nloading good prompts ({settings.good_prompts.dataset})...",
+              flush=True)
+        good_prompts = load_prompts(settings, settings.good_prompts)
+        print(f"  {len(good_prompts)} prompts", flush=True)
+        print(f"loading bad prompts ({settings.bad_prompts.dataset})...",
+              flush=True)
+        bad_prompts = load_prompts(settings, settings.bad_prompts)
+        print(f"  {len(bad_prompts)} prompts", flush=True)
 
-    print("\ncomputing per-layer refusal directions...", flush=True)
-    good_means = model.get_residuals_mean(good_prompts)
-    bad_means = model.get_residuals_mean(bad_prompts)
-    refusal_directions = F.normalize(bad_means - good_means, p=2, dim=1)
-    if settings.orthogonalize_direction:
-        good_directions = F.normalize(good_means, p=2, dim=1)
-        proj = torch.sum(refusal_directions * good_directions, dim=1)
-        refusal_directions = refusal_directions - proj.unsqueeze(1) * good_directions
-        refusal_directions = F.normalize(refusal_directions, p=2, dim=1)
-        del good_directions, proj
-    del good_means, bad_means
-    empty_cache()
+        print("\ncomputing per-layer refusal directions...", flush=True)
+        good_means = model.get_residuals_mean(good_prompts)
+        bad_means = model.get_residuals_mean(bad_prompts)
+        refusal_directions = F.normalize(bad_means - good_means, p=2, dim=1)
+        if settings.orthogonalize_direction:
+            good_directions = F.normalize(good_means, p=2, dim=1)
+            proj = torch.sum(refusal_directions * good_directions, dim=1)
+            refusal_directions = refusal_directions - proj.unsqueeze(1) * good_directions
+            refusal_directions = F.normalize(refusal_directions, p=2, dim=1)
+            del good_directions, proj
+        del good_means, bad_means
+        empty_cache()
+
+        if not args.no_cache:
+            args.cache_dir.mkdir(parents=True, exist_ok=True)
+            torch.save(refusal_directions.cpu(), cache_path)
+            print(f"cached refusal_directions to {cache_path}", flush=True)
 
     # Build the AbliterationParameters dict from the trial params, reproducing
     # Heretic's `min_weight = min_weight_fraction * max_weight` transform from
