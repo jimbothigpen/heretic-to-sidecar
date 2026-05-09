@@ -72,11 +72,22 @@ def main():
     # Reconstruct Heretic settings from the journal's stashed settings blob.
     # Keep the exact same dtypes/quantization/prompts/seed so refusal
     # direction computation is bit-identical to the original study.
+    #
+    # Heretic's Settings is a pydantic_settings.BaseSettings with an active
+    # CliSettingsSource(cli_parse_args=True), which inspects sys.argv at
+    # instantiation time. Our own argparse already consumed --journal/--trial
+    # /--output, but those would still confuse Heretic's parser, so neuter
+    # sys.argv before Settings.model_validate runs.
     if not journal.settings:
         sys.exit("journal lacks the 'settings' user_attr; cannot reconstruct Settings")
     sj = dict(journal.settings)
     sj["device_map"] = args.device_map
-    settings = Settings.model_validate(sj)
+    saved_argv = sys.argv
+    sys.argv = [sys.argv[0]]
+    try:
+        settings = Settings.model_validate(sj)
+    finally:
+        sys.argv = saved_argv
     set_seed(settings.seed)
 
     print(f"\nloading base model {settings.model}...", flush=True)

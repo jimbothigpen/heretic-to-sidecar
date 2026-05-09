@@ -89,8 +89,15 @@ def append_wd_tags(intermediate: Path, output: Path, arch: str) -> None:
     }
     written_keys: set[str] = set()
 
+    # GGUF.* are format-level metadata (version / tensor_count / kv_count)
+    # that the writer emits automatically — copying them as user KVs would
+    # duplicate them and corrupt the output.
+    META_PREFIX = "GGUF."
+
     for f in r.fields.values():
         key = f.name
+        if key.startswith(META_PREFIX):
+            continue
         if key in overrides:
             # Skip; we'll write our overridden value below.
             continue

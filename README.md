@@ -1,0 +1,94 @@
+# heretic-to-sidecar
+
+Replays a [Heretic](https://github.com/p-e-w/heretic) abliteration trial
+against the base model to produce a peft LoRA adapter, then converts it
+to a [frankenturbo2](https://github.com/jimbothigpen/frankenturbo2)
+weight-delta sidecar (`.wd.gguf`) that loads via the
+`sidecar-weight-delta` plugin.
+
+The whole point of this repo is to **skip Heretic's interactive
+trial-selection menu** — Heretic's optuna journal already contains every
+trial's params and outcomes; we just pull the params for a specific
+trial and replay the surgery.
+
+## Pipeline
+
+```
+                         heretic optuna journal (.jsonl)
+                                       │
+                          scripts/from_heretic.py --trial N
+                                       │
+                                       ▼
+                             peft adapter directory
+                          (adapter_model.safetensors,
+                           adapter_config.json,
+                           heretic_trial.json)
+                                       │
+                       scripts/peft_to_wd_gguf.py
+                       (wraps llama.cpp convert_lora_to_gguf.py
+                        + adds sidecar.type / wd.arch KVs)
+                                       │
+                                       ▼
+                              <trial>.wd.gguf
+                       (loaded via sidecar-weight-delta plugin)
+```
+
+## Dependencies
+
+This shares the `obliteratus-to-sidecar` venv (torch + transformers +
+peft + bitsandbytes + gguf + optuna + scipy). Heretic itself is imported
+via PYTHONPATH from a local checkout — no pip install needed:
+
+```bash
+git clone --depth=1 https://github.com/p-e-w/heretic.git /tmp/heretic
+```
+
+## Usage
+
+```bash
+# Re-derive the LoRA adapter from trial 9 of an existing Heretic study.
+PYTHONPATH=/tmp/heretic/src \
+HSA_OVERRIDE_GFX_VERSION=11.0.0 \
+/usr/src/llama-forks/obliteratus-to-sidecar/.venv/bin/python \
+scripts/from_heretic.py \
+    --journal /home/builduser/checkpoints/google--gemma-4-E2B-it.jsonl \
+    --trial 9 \
+    --output /tmp/heretic-trial-9-adapter
+
+# Convert peft adapter → tagged .wd.gguf.
+BASE=/home/builduser/.cache/huggingface/hub/models--google--gemma-4-E2B-it/snapshots/<sha>/
+/usr/src/llama-forks/obliteratus-to-sidecar/.venv/bin/python \
+scripts/peft_to_wd_gguf.py \
+    --peft-dir /tmp/heretic-trial-9-adapter \
+    --base-model "$BASE" \
+    --output /tmp/trial-9.wd.gguf
+```
+
+## Notes
+
+- `from_heretic.py` neutralises `sys.argv` before constructing Heretic's
+  `Settings` because Heretic uses `pydantic_settings.CliSettingsSource`
+  with `cli_parse_args=True`, which would otherwise try (and fail) to
+  parse our `--journal/--trial/--output` flags.
+- On AMD GPUs without explicit PyTorch ROCm support (e.g. gfx1150),
+  `HSA_OVERRIDE_GFX_VERSION=11.0.0` makes torch treat the device as
+  RDNA3 (gfx1100), which is supported by the standard PyTorch+ROCm
+  wheels.
+- `peft_to_wd_gguf.py`'s converter wrapper expects the base model as a
+  local path (not an HF id) because llama.cpp's
+  `convert_lora_to_gguf.py` does an os.listdir on the path.
+
+## Validation (Gemma-4-E2B-it, trial 9)
+
+End-to-end PPL on `wikitext-2-raw-test.txt` (chunks=32, c=512):
+
+| run                                          | PPL            |
+|----------------------------------------------|----------------|
+| baseline (no adapter)                        | 146.54 ± 8.55  |
+| `--lora trial-9.wd.gguf` (existing path)     | 155.59 ± 9.16  |
+| `--sidecar-vectors trial-9.wd.gguf` (plugin) | 155.59 ± 9.16  |
+
+The sidecar plugin path produces bit-identical PPL to the existing
+`--lora` path, confirming the engine's apply_to_weights hook correctly
+threads the adapter into `ctx->loras` and `build_lora_mm()` for each
+forward pass.
