@@ -38,10 +38,8 @@ amortise that cost across runs. Pass --no-cache to force recompute.
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import os
-import subprocess
 import sys
 from pathlib import Path
 
@@ -49,6 +47,10 @@ from pathlib import Path
 _HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(_HERE.parent))
 from heretic_to_sidecar.journal import parse_journal, trial_summary  # noqa: E402
+from heretic_to_sidecar.cache import (  # noqa: E402
+    heretic_commit as _heretic_commit,
+    refusal_directions_cache_path as _refusal_directions_cache_path,
+)
 
 
 def _resolve_heretic_path() -> Path:
@@ -85,38 +87,6 @@ from heretic.system import empty_cache  # noqa: E402
 
 
 _DEFAULT_CACHE_DIR = Path.home() / ".cache" / "heretic-to-sidecar" / "refusal_directions"
-
-
-def _heretic_commit(path: Path) -> str | None:
-    try:
-        out = subprocess.check_output(
-            ["git", "-C", str(path), "rev-parse", "HEAD"],
-            text=True, stderr=subprocess.DEVNULL,
-        )
-        return out.strip()
-    except (subprocess.CalledProcessError, FileNotFoundError):
-        return None
-
-
-def _refusal_directions_cache_path(
-    journal_settings: dict, heretic_commit: str | None, cache_dir: Path,
-) -> Path:
-    """Hash the inputs that determine refusal_directions and return the
-    cache file path. Hits across trials in the same study (same journal
-    settings + same Heretic commit)."""
-    key = {
-        # `journal.settings` is the raw dict the original study was launched
-        # with; it captures model id, dtype, quant, prompts, seed,
-        # orthogonalize_direction, etc. Don't include device_map — same
-        # directions on CPU vs GPU.
-        "settings": journal_settings,
-        "heretic_commit": heretic_commit,
-        # Bump if the math in the compute block below changes.
-        "schema": 1,
-    }
-    blob = json.dumps(key, sort_keys=True, default=str).encode()
-    sha = hashlib.sha256(blob).hexdigest()
-    return cache_dir / f"{sha}.pt"
 
 
 def main():
