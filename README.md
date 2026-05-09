@@ -6,6 +6,20 @@ to a [frankenturbo2](https://github.com/jimbothigpen/frankenturbo2)
 weight-delta sidecar (`.wd.gguf`) that loads via the
 `sidecar-weight-delta` plugin.
 
+This tool is **a thin client around Heretic** — Heretic does all the
+abliteration math (refusal-direction extraction, per-layer rank-r weight
+surgery, optuna study). All credit for that algorithm and implementation
+belongs to [@p-e-w](https://github.com/p-e-w) and the Heretic
+contributors. We just walk an already-completed optuna journal, replay
+the chosen trial's `model.abliterate()` call, save the peft LoRA
+adapter, and post-process it into the GGUF format our sidecar plugin
+consumes.
+
+Heretic is licensed AGPL-3.0. We import it from a local source checkout
+via `PYTHONPATH=/tmp/heretic/src`, do not redistribute or modify
+Heretic's source, and do not bundle it. Anyone running this pipeline is
+running unmodified Heretic; consult Heretic's own LICENSE for terms.
+
 The whole point of this repo is to **skip Heretic's interactive
 trial-selection menu** — Heretic's optuna journal already contains every
 trial's params and outcomes; we just pull the params for a specific
