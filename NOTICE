@@ -1,0 +1,41 @@
+# NOTICE — runtime dependency on AGPL-3.0 software
+
+`heretic-to-sidecar` is licensed under the MIT License. **However, its
+primary script (`scripts/from_heretic.py`) loads
+[Heretic](https://github.com/p-e-w/heretic) at runtime from a local
+source checkout via `PYTHONPATH`.** Heretic is licensed under the
+**GNU Affero General Public License v3.0 (AGPL-3.0)**.
+
+We do **not** redistribute Heretic, modify Heretic's source, or bundle
+Heretic in this repository. Anyone running `from_heretic.py` is running
+unmodified upstream Heretic, obtained directly from
+`p-e-w/heretic`. Consult Heretic's own LICENSE for terms governing your
+use of Heretic itself.
+
+## What this means in practice
+
+- **Reading / using the MIT code in this repo (everything outside
+  `from_heretic.py`'s actual execution context):** standard MIT terms
+  apply. You may use, modify, and redistribute the wrapper code freely.
+- **Running `from_heretic.py`:** you are running unmodified Heretic
+  alongside this MIT wrapper. The AGPL applies to your use of Heretic.
+  In particular, if you make Heretic available to others over a network
+  (e.g. as part of a hosted service), AGPL-3.0 may obligate you to
+  publish your modified Heretic source — but `heretic-to-sidecar` does
+  not modify Heretic, so this affects Heretic itself, not this wrapper.
+- **Forking `heretic-to-sidecar`:** you may relicense your fork of *this
+  repo's MIT-licensed code* however you like, but doing so does not
+  change Heretic's AGPL-3.0 terms.
+
+## Why we did it this way
+
+A pip-package or git-submodule bundling of Heretic into this repo would
+trigger AGPL-3.0 reciprocity for the bundled repo. Loading Heretic from
+a separate local checkout via `PYTHONPATH` keeps the two licensing
+domains cleanly separated: anyone running `from_heretic.py` accepts
+Heretic's AGPL terms by virtue of running Heretic, but the wrapper code
+itself stays under MIT.
+
+If you intend to vendor Heretic into a derived work, you must comply
+with Heretic's AGPL-3.0 terms — typically by relicensing your derived
+work under a compatible license and offering corresponding source.

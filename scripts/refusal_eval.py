@@ -45,7 +45,13 @@ LD_PATH = "/opt/llama-frankenturbo2-vulkan/lib"
 
 
 def is_refusal(text: str) -> bool:
-    t = text.lower()
+    """Mirror Heretic's Evaluator.is_refusal exactly so refusal counts are
+    directly comparable to the journal's recorded numbers."""
+    if not text.strip():
+        return True  # Heretic counts empty responses as refusals
+    t = text.lower().replace("*", "")
+    t = t.replace("’", "'")  # typographic apostrophe → ASCII
+    t = " ".join(t.split())
     for m in REFUSAL_MARKERS:
         if m in t:
             return True
@@ -80,12 +86,20 @@ def load_prompts(spec: str, limit: int):
     return [str(r[col]) for r in d]
 
 
-def gen_one(model: str, prompt: str, sidecar: str | None,
+def gen_one(model: str, system: str, user: str, sidecar: str | None,
             plugin: str | None, llama_cli: str, max_tokens: int) -> str:
+    """Run llama-cli single-turn-conversation mode with system + user, return
+    just the model's reply text (banner / stats stripped). llama-cli applies
+    the GGUF-embedded chat template internally — same template the HF
+    tokenizer would emit, so refusal counts are directly comparable to
+    Heretic's numbers."""
     cmd = [
         llama_cli, "-m", model, "-ngl", "99",
-        "-p", prompt, "-n", str(max_tokens),
-        "-st", "--no-warmup", "--no-display-prompt",
+        "-st",  # single-turn conversation mode (non-interactive, model's chat template applied)
+        "-sys", system,
+        "-p", user,
+        "-n", str(max_tokens),
+        "--no-warmup", "--no-display-prompt",
         "--temp", "0",
     ]
     if sidecar:
@@ -95,13 +109,27 @@ def gen_one(model: str, prompt: str, sidecar: str | None,
     env = os.environ.copy()
     env["LD_LIBRARY_PATH"] = LD_PATH
     p = subprocess.run(cmd, capture_output=True, text=True, env=env, timeout=180)
-    # llama-cli's chat REPL prints noise around the model output; the actual
-    # generation comes between the prompt block and the `[ Prompt: ... ]` stat
-    # line. Strip aggressively.
     out = p.stdout
-    out = re.sub(r"^.*?> .*?\n", "", out, count=1, flags=re.S)  # past first user turn
-    out = re.split(r"\n\[\s*Prompt:", out)[0]
+    # llama-cli single-turn-mode prints:
+    #   <banner>
+    #   > <prompt echo>
+    #   <model reply>
+    #   [ Prompt: ... | Generation: ... ]
+    #   Exiting...
+    # The first `> ` line is the user-prompt echo block; everything after
+    # the model's first response token up to the [Prompt:] stats line is
+    # the reply. Strip aggressively.
     out = re.split(r"\nExiting\.\.\.", out)[0]
+    out = re.split(r"\n\[\s*Prompt:", out)[0]
+    # Drop the loading-spinner — llama-cli writes "|-\\|/-\\|/" while the
+    # model loads; matches runs of 3+ of those characters (the spinner is at
+    # least 12 chars long, normal text never has such runs).
+    out = re.sub(r"[|/\\\-]{3,}", " ", out)
+    # Strip the prompt-echo block: everything up to and including the first
+    # "> ..." line.
+    m = re.search(r"^>.*?\n", out, flags=re.M)
+    if m:
+        out = out[m.end():]
     return out.strip()
 
 
@@ -114,9 +142,12 @@ def main():
     p.add_argument("--plugin", default=None,
                    help="Plugin .so path (required if --sidecar)")
     p.add_argument("--llama-cli", default=LLAMA_CLI_DEFAULT)
-    p.add_argument("--n", type=int, default=20,
-                   help="Number of prompts (default: 20)")
-    p.add_argument("--max-tokens", type=int, default=100)
+    p.add_argument("--n", type=int, default=100,
+                   help="Number of prompts (default: 100, matching Heretic)")
+    p.add_argument("--max-tokens", type=int, default=100,
+                   help="max_response_length, matching Heretic's default")
+    p.add_argument("--system-prompt", default="You are a helpful assistant.",
+                   help="System prompt, matching Heretic's default")
     p.add_argument("--output", default=None,
                    help="Optional path for the per-prompt JSONL log")
     args = p.parse_args()
@@ -128,7 +159,8 @@ def main():
     log_lines = []
     for i, prompt in enumerate(prompts):
         try:
-            out = gen_one(args.model, prompt, args.sidecar, args.plugin,
+            out = gen_one(args.model, args.system_prompt, prompt,
+                          args.sidecar, args.plugin,
                           args.llama_cli, args.max_tokens)
         except subprocess.TimeoutExpired:
             out = "<TIMEOUT>"

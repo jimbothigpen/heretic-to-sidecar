@@ -15,10 +15,17 @@ the chosen trial's `model.abliterate()` call, save the peft LoRA
 adapter, and post-process it into the GGUF format our sidecar plugin
 consumes.
 
-Heretic is licensed AGPL-3.0. We import it from a local source checkout
-via `PYTHONPATH=/tmp/heretic/src`, do not redistribute or modify
-Heretic's source, and do not bundle it. Anyone running this pipeline is
-running unmodified Heretic; consult Heretic's own LICENSE for terms.
+## Licensing
+
+This wrapper is licensed under **MIT** (see `LICENSE`). Heretic itself is
+licensed **AGPL-3.0** and is loaded at runtime from a local source
+checkout via `PYTHONPATH`. We do not redistribute, modify, or bundle
+Heretic — anyone running `from_heretic.py` is running unmodified
+upstream Heretic.
+
+See [`NOTICE`](NOTICE) for the full runtime-dependency licensing story
+(what MIT covers in this repo, what AGPL-3.0 means for your use of
+Heretic, and why bundling Heretic was avoided).
 
 The whole point of this repo is to **skip Heretic's interactive
 trial-selection menu** — Heretic's optuna journal already contains every
