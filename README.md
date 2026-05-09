@@ -57,18 +57,28 @@ trial and replay the surgery.
 ## Dependencies
 
 This shares the `obliteratus-to-sidecar` venv (torch + transformers +
-peft + bitsandbytes + gguf + optuna + scipy). Heretic itself is imported
-via PYTHONPATH from a local checkout — no pip install needed:
+peft + bitsandbytes + gguf + optuna + scipy). Heretic itself is loaded
+at runtime from a local source checkout — no pip install needed.
+
+Use the bootstrap script to clone Heretic at a pinned commit into a
+stable location (`/usr/src/llama-forks/_heretic-vendored/`):
 
 ```bash
-git clone --depth=1 https://github.com/p-e-w/heretic.git /tmp/heretic
+scripts/bootstrap_heretic.sh
 ```
+
+The script is idempotent: re-running it fetches and resets to the pinned
+commit. Override the destination with `HERETIC_PATH=/some/path` if you
+want it elsewhere.
+
+`from_heretic.py` resolves the Heretic source at startup in this order:
+`$HERETIC_PATH` → `/usr/src/llama-forks/_heretic-vendored/` →
+`/tmp/heretic/` (legacy). No `PYTHONPATH=` prefix needed.
 
 ## Usage
 
 ```bash
 # Re-derive the LoRA adapter from trial 9 of an existing Heretic study.
-PYTHONPATH=/tmp/heretic/src \
 HSA_OVERRIDE_GFX_VERSION=11.0.0 \
 /usr/src/llama-forks/obliteratus-to-sidecar/.venv/bin/python \
 scripts/from_heretic.py \

@@ -7,13 +7,21 @@ and saves the resulting peft adapter directory. The directory can then be
 fed to llama.cpp's convert_lora_to_gguf.py + the wd-tagging post-processor
 to produce a frankenturbo2 weight-delta sidecar (.wd.gguf).
 
-Heretic must be importable. We don't pip-install it; we add its source to
-PYTHONPATH so the obliteratus-to-sidecar venv (which already carries the
-heavy ML deps: torch+rocm, transformers, peft, bitsandbytes, gguf, optuna)
-serves both projects.
+Heretic must be importable. We don't pip-install it; we resolve its
+source location at startup and inject `<path>/src` into sys.path. The
+obliteratus-to-sidecar venv (torch+rocm, transformers, peft,
+bitsandbytes, gguf, optuna) supplies the heavy ML deps for both projects.
+
+Heretic source resolution order:
+  1. $HERETIC_PATH (must point to the repo root)
+  2. /usr/src/llama-forks/_heretic-vendored/ (scripts/bootstrap_heretic.sh
+     default)
+  3. /tmp/heretic/ (legacy; kept for backwards compatibility)
+
+If none of those exist, we exit with an installation hint rather than
+letting the import-time error confuse the user.
 
 Usage:
-    PYTHONPATH=/tmp/heretic/src \
     /usr/src/llama-forks/obliteratus-to-sidecar/.venv/bin/python \
     scripts/from_heretic.py \
         --journal /home/builduser/checkpoints/google--gemma-4-E2B-it.jsonl \
@@ -28,6 +36,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -35,6 +44,30 @@ from pathlib import Path
 _HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(_HERE.parent))
 from heretic_to_sidecar.journal import parse_journal, trial_summary  # noqa: E402
+
+
+def _resolve_heretic_path() -> Path:
+    candidates: list[tuple[Path, str]] = []
+    env = os.environ.get("HERETIC_PATH")
+    if env:
+        candidates.append((Path(env), "$HERETIC_PATH"))
+    candidates.append(
+        (Path("/usr/src/llama-forks/_heretic-vendored"), "vendored default")
+    )
+    candidates.append((Path("/tmp/heretic"), "legacy /tmp checkout"))
+    for path, label in candidates:
+        if (path / "src" / "heretic" / "model.py").is_file():
+            print(f"using Heretic source at {path} ({label})", flush=True)
+            return path
+    sys.exit(
+        "ERROR: Heretic source not found.\n"
+        "Run scripts/bootstrap_heretic.sh to clone it to "
+        "/usr/src/llama-forks/_heretic-vendored/, or set HERETIC_PATH "
+        "to an existing checkout root."
+    )
+
+
+sys.path.insert(0, str(_resolve_heretic_path() / "src"))
 
 # Heretic
 import torch  # noqa: E402
