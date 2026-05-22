@@ -9,7 +9,7 @@ doesn't compute KL), but enough to sanity-check that the sidecar is
 shifting refusal behaviour in the expected direction.
 
 Usage:
-    /usr/src/llama-forks/obliteratus-to-sidecar/.venv/bin/python \
+    /mnt/cephfs/0/Container/systems/ai00/users/builduser/projects/obliteratus-to-sidecar/src/jimbothigpen/obliteratus-to-sidecar/.venv/bin/python \
     scripts/refusal_eval.py \
         --model /mnt/cephfs/.../gemma-4-E2B-it-Q4_K_M.gguf \
         --prompts mlabonne/harmful_behaviors:test:100 \

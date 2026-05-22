@@ -20,7 +20,7 @@ HERETIC_REPO="${HERETIC_REPO:-https://github.com/p-e-w/heretic.git}"
 # heretic.model.Model/AbliterationParameters, heretic.utils.load_prompts/
 # set_seed, heretic.system.empty_cache). Bump deliberately and retest.
 HERETIC_PIN="${HERETIC_PIN:-8b5b85bec904aae764aa8d63170e814bd0222a6d}"
-HERETIC_PATH="${HERETIC_PATH:-/usr/src/llama-forks/_heretic-vendored}"
+HERETIC_PATH="${HERETIC_PATH:-/mnt/cephfs/0/Container/systems/ai00/users/builduser/projects/heretic-to-sidecar/src/p-e-w/heretic}"
 
 if [[ -d "$HERETIC_PATH/.git" ]]; then
     echo "==> existing checkout: $HERETIC_PATH"

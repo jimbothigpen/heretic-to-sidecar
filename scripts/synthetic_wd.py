@@ -9,7 +9,7 @@ correctly (dlopen → register → apply_to_weights → llama_adapter_lora_init 
 ctx->loras → build_lora_mm) without depending on Heretic.
 
 Usage:
-    /usr/src/llama-forks/obliteratus-to-sidecar/.venv/bin/python \
+    /mnt/cephfs/0/Container/systems/ai00/users/builduser/projects/obliteratus-to-sidecar/src/jimbothigpen/obliteratus-to-sidecar/.venv/bin/python \
     scripts/synthetic_wd.py \
         --base /path/to/base_model.gguf \
         --output /tmp/synthetic.wd.gguf \

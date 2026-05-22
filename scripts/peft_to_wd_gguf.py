@@ -20,7 +20,7 @@ The result is dual-schema: passes both `llama_adapter_lora_init`'s checks
 sidecar.type dispatch.
 
 Usage:
-    /usr/src/llama-forks/obliteratus-to-sidecar/.venv/bin/python \
+    /mnt/cephfs/0/Container/systems/ai00/users/builduser/projects/obliteratus-to-sidecar/src/jimbothigpen/obliteratus-to-sidecar/.venv/bin/python \
     scripts/peft_to_wd_gguf.py \
         --peft-dir /tmp/heretic-trial-9-adapter \
         --base-model google/gemma-4-E2B-it \
@@ -39,8 +39,8 @@ from pathlib import Path
 import gguf  # noqa: E402
 
 
-CONVERTER = Path("/usr/src/llama-forks/frankenturbo2/convert_lora_to_gguf.py")
-DEFAULT_PYTHON = Path("/usr/src/llama-forks/obliteratus-to-sidecar/.venv/bin/python")
+CONVERTER = Path("/mnt/cephfs/0/Container/systems/ai00/users/builduser/projects/frankenturbo2/src/jimbothigpen/frankenturbo2/convert_lora_to_gguf.py")
+DEFAULT_PYTHON = Path("/mnt/cephfs/0/Container/systems/ai00/users/builduser/projects/obliteratus-to-sidecar/src/jimbothigpen/obliteratus-to-sidecar/.venv/bin/python")
 
 
 def run_converter(peft_dir: Path, base_model: str, intermediate: Path,

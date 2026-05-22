@@ -7,7 +7,7 @@ is in its current broken state — `import torch` and `torch.save`/`torch.load`
 on CPU tensors do not exercise the hipLaunchKernel path that's hung.
 
 Run:
-    /usr/src/llama-forks/obliteratus-to-sidecar/.venv/bin/python -m unittest \\
+    /mnt/cephfs/0/Container/systems/ai00/users/builduser/projects/obliteratus-to-sidecar/src/jimbothigpen/obliteratus-to-sidecar/.venv/bin/python -m unittest \\
         discover -s tests -t . -v
 """
 

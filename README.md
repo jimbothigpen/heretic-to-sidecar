@@ -61,7 +61,7 @@ peft + bitsandbytes + gguf + optuna + scipy). Heretic itself is loaded
 at runtime from a local source checkout — no pip install needed.
 
 Use the bootstrap script to clone Heretic at a pinned commit into a
-stable location (`/usr/src/llama-forks/_heretic-vendored/`):
+stable location (`/mnt/cephfs/0/Container/systems/ai00/users/builduser/projects/heretic-to-sidecar/src/p-e-w/heretic/`):
 
 ```bash
 scripts/bootstrap_heretic.sh
@@ -72,7 +72,7 @@ commit. Override the destination with `HERETIC_PATH=/some/path` if you
 want it elsewhere.
 
 `from_heretic.py` resolves the Heretic source at startup in this order:
-`$HERETIC_PATH` → `/usr/src/llama-forks/_heretic-vendored/` →
+`$HERETIC_PATH` → `/mnt/cephfs/0/Container/systems/ai00/users/builduser/projects/heretic-to-sidecar/src/p-e-w/heretic/` →
 `/tmp/heretic/` (legacy). No `PYTHONPATH=` prefix needed.
 
 ## Usage
@@ -80,7 +80,7 @@ want it elsewhere.
 ```bash
 # Re-derive the LoRA adapter from trial 9 of an existing Heretic study.
 HSA_OVERRIDE_GFX_VERSION=11.0.0 \
-/usr/src/llama-forks/obliteratus-to-sidecar/.venv/bin/python \
+/mnt/cephfs/0/Container/systems/ai00/users/builduser/projects/obliteratus-to-sidecar/src/jimbothigpen/obliteratus-to-sidecar/.venv/bin/python \
 scripts/from_heretic.py \
     --journal /home/builduser/checkpoints/google--gemma-4-E2B-it.jsonl \
     --trial 9 \
@@ -88,7 +88,7 @@ scripts/from_heretic.py \
 
 # Convert peft adapter → tagged .wd.gguf.
 BASE=/home/builduser/.cache/huggingface/hub/models--google--gemma-4-E2B-it/snapshots/<sha>/
-/usr/src/llama-forks/obliteratus-to-sidecar/.venv/bin/python \
+/mnt/cephfs/0/Container/systems/ai00/users/builduser/projects/obliteratus-to-sidecar/src/jimbothigpen/obliteratus-to-sidecar/.venv/bin/python \
 scripts/peft_to_wd_gguf.py \
     --peft-dir /tmp/heretic-trial-9-adapter \
     --base-model "$BASE" \

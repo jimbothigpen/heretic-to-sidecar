@@ -14,7 +14,7 @@ bitsandbytes, gguf, optuna) supplies the heavy ML deps for both projects.
 
 Heretic source resolution order:
   1. $HERETIC_PATH (must point to the repo root)
-  2. /usr/src/llama-forks/_heretic-vendored/ (scripts/bootstrap_heretic.sh
+  2. /mnt/cephfs/0/Container/systems/ai00/users/builduser/projects/heretic-to-sidecar/src/p-e-w/heretic/ (scripts/bootstrap_heretic.sh
      default)
   3. /tmp/heretic/ (legacy; kept for backwards compatibility)
 
@@ -22,7 +22,7 @@ If none of those exist, we exit with an installation hint rather than
 letting the import-time error confuse the user.
 
 Usage:
-    /usr/src/llama-forks/obliteratus-to-sidecar/.venv/bin/python \
+    /mnt/cephfs/0/Container/systems/ai00/users/builduser/projects/obliteratus-to-sidecar/src/jimbothigpen/obliteratus-to-sidecar/.venv/bin/python \
     scripts/from_heretic.py \
         --journal /home/builduser/checkpoints/google--gemma-4-E2B-it.jsonl \
         --trial 9 \
@@ -59,7 +59,7 @@ def _resolve_heretic_path() -> Path:
     if env:
         candidates.append((Path(env), "$HERETIC_PATH"))
     candidates.append(
-        (Path("/usr/src/llama-forks/_heretic-vendored"), "vendored default")
+        (Path("/mnt/cephfs/0/Container/systems/ai00/users/builduser/projects/heretic-to-sidecar/src/p-e-w/heretic"), "vendored default")
     )
     candidates.append((Path("/tmp/heretic"), "legacy /tmp checkout"))
     for path, label in candidates:
@@ -69,7 +69,7 @@ def _resolve_heretic_path() -> Path:
     sys.exit(
         "ERROR: Heretic source not found.\n"
         "Run scripts/bootstrap_heretic.sh to clone it to "
-        "/usr/src/llama-forks/_heretic-vendored/, or set HERETIC_PATH "
+        "/mnt/cephfs/0/Container/systems/ai00/users/builduser/projects/heretic-to-sidecar/src/p-e-w/heretic/, or set HERETIC_PATH "
         "to an existing checkout root."
     )
 
