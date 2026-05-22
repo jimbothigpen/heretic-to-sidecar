@@ -2,7 +2,7 @@
 
 Replays a [Heretic](https://github.com/p-e-w/heretic) abliteration trial
 against the base model to produce a peft LoRA adapter, then converts it
-to a [frankenturbo2](https://github.com/jimbothigpen/frankenturbo2)
+to a [`jimbothigpen/llama.cpp`](https://github.com/jimbothigpen/llama.cpp)
 weight-delta sidecar (`.wd.gguf`) that loads via the
 `sidecar-weight-delta` plugin.
 
